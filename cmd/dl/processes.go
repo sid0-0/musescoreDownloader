@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -113,12 +114,12 @@ func downloadFile(fileUrl string, fileName string) error {
 	if len(fileName) == 0 {
 		fileName = "DummyFilename"
 	}
-	err = os.MkdirAll("downloads", 0777)
-	if err != nil {
-		fmt.Println("Failed to create folder")
-		return err
-	}
-	fileName = "downloads/" + fileName
+	// err = os.MkdirAll("downloads", 0777)
+	// if err != nil {
+	// 	fmt.Println("Failed to create folder")
+	// 	return err
+	// }
+	// fileName = fileName
 	file, err := os.Create(fileName)
 	if err != nil {
 		fmt.Println("Failed to create file")
@@ -132,14 +133,39 @@ func downloadFile(fileUrl string, fileName string) error {
 	return nil
 }
 
-func downloadSvgsTillFailure(url string, headers map[string]string) {
+func exportToHTML(files []string, sheetNumber string) error {
+
+	tmpl := template.Must(template.ParseFiles("../cmd/dl/template.html"))
+
+	file, err := os.Create(sheetNumber + ".html")
+	if err != nil {
+		fmt.Println("Failed to create file")
+		return err
+	}
+	defer file.Close()
+	err = tmpl.Execute(file, files)
+	return err
+}
+
+func downloadSvgsTillFailure(url string, headers map[string]string) error {
+	sheetNumber := GetLastFromSplit(url, "/")
+	err := os.MkdirAll(sheetNumber, 0777)
+	if err != nil {
+		fmt.Println("Failed to create directory")
+		return err
+	}
+	err = os.Chdir(sheetNumber)
+	if err != nil {
+		fmt.Println("Failed to change to  directory")
+		return err
+	}
 	var pageIndex int = 0
 	for {
 		svgUrl, err := getSVGSheetUrl(url, pageIndex, headers)
 		if err != nil {
 			panic(err)
 		}
-		fileName := fmt.Sprintf("%s_%d.svg", GetLastFromSplit(url, "/"), pageIndex)
+		fileName := fmt.Sprintf("%s_%d.svg", sheetNumber, pageIndex)
 		err = downloadFile(svgUrl, fileName)
 		if err != nil {
 			if pageIndex == 0 {
@@ -150,6 +176,18 @@ func downloadSvgsTillFailure(url string, headers map[string]string) {
 		}
 		pageIndex++
 	}
+
+	var files []string
+	filesInfo, _ := os.ReadDir(".")
+	for _, fi := range filesInfo {
+		if name := fi.Name(); strings.HasSuffix(name, ".svg") {
+			files = append(files, name)
+		}
+	}
+
+	exportToHTML(files, sheetNumber)
+
+	return nil
 }
 
 func DownloadFromUrl(url string) error {

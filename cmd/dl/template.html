@@ -1,0 +1,20 @@
+<html>
+  <head>
+    <style>
+      #container {
+        display: flex;
+        flex-wrap: wrap;
+      }
+      #container img {
+        width: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      {{ range . }}
+      <img src="{{.}}" />
+      {{end}}
+    </div>
+  </body>
+</html>
