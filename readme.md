@@ -1,3 +1,5 @@
+Currently only works for svg sheets, need to add support for other formats
+
 Svg of all pages can be obtained from `https://musescore.com/api/jmuse?id=6102579&index=[PAGE_NO, 0 indexed]&type=img&v2` but it requires authorization header. Authorization can be obtained from a js chunk in the file html.
 
 Steps:

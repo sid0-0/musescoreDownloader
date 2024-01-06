@@ -55,7 +55,7 @@ func getAuthTokenFromChunk(chunkUrl string) (string, error) {
 }
 
 func getSVGSheetUrl(sheetId string, pageNumber int, headers map[string]string) (string, error) {
-	urlPath := fmt.Sprintf(`https://musescore.com/api/jmuse?id=6102579&index=%d&type=img&v2=1`, pageNumber)
+	urlPath := fmt.Sprintf(`https://musescore.com/api/jmuse?id=%s&index=%d&type=img&v2=1`, sheetId, pageNumber)
 	fmt.Println("url: ", urlPath)
 
 	// Creating new http request object
