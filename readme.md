@@ -12,9 +12,9 @@ Steps:
 Usage:
 
 ```
-./musescoreDownloader [url]
+./musescoreDownloader dl [url1] [url2] [url3] ...
 ```
 OR
 ```
-go run . dl [url]
+go run . dl [url1] [url2] [url3] ...
 ```

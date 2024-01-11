@@ -99,7 +99,7 @@ func getSVGSheetUrl(sheetId string, pageNumber int, headers map[string]string) (
 	return data.Info.Url, nil
 }
 
-func downloadFile(fileUrl string) error {
+func downloadFile(fileUrl string, dataFolderPath string) error {
 	res, err := http.Get(fileUrl)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func downloadFile(fileUrl string) error {
 
 	fileName := parsedData["filename"]
 	fmt.Println("Filename: ", fileName)
-	file, err := os.Create(fileName)
+	file, err := os.Create(dataFolderPath + "/" + fileName)
 	if err != nil {
 		fmt.Println("Failed to create file")
 		return err
@@ -133,8 +133,8 @@ func downloadFile(fileUrl string) error {
 
 var outputTemplate = template.Must(template.ParseFiles("cmd/dl/template.html"))
 
-func exportToHTML(files []string, sheetNumber string) error {
-	file, err := os.Create(sheetNumber + ".html")
+func exportToHTML(files []string, dataFolderPath string, sheetNumber string) error {
+	file, err := os.Create(dataFolderPath + "/" + sheetNumber + ".html")
 	if err != nil {
 		fmt.Println("Failed to create file")
 		return err
@@ -147,14 +147,10 @@ func exportToHTML(files []string, sheetNumber string) error {
 func downloadSvgsTillFailure(url string, headers map[string]string) error {
 	sheetNumber := GetLastFromSplit(url, "/")
 	fmt.Printf("SheetId: %s\n", sheetNumber)
+	dataFolderPath := fmt.Sprintf("downloads/%s", sheetNumber)
 	err := os.MkdirAll(fmt.Sprintf("downloads/%s", sheetNumber), 0777)
 	if err != nil {
 		fmt.Println("Failed to create directory")
-		return err
-	}
-	err = os.Chdir(fmt.Sprintf("downloads/%s", sheetNumber))
-	if err != nil {
-		fmt.Println("Failed to change to  directory")
 		return err
 	}
 	var pageIndex int = 0
@@ -163,7 +159,7 @@ func downloadSvgsTillFailure(url string, headers map[string]string) error {
 		if err != nil {
 			panic(err)
 		}
-		err = downloadFile(svgUrl)
+		err = downloadFile(svgUrl, dataFolderPath)
 		if err != nil {
 			if pageIndex == 0 {
 				panic(err)
@@ -175,14 +171,14 @@ func downloadSvgsTillFailure(url string, headers map[string]string) error {
 	}
 
 	var files []string
-	filesInfo, _ := os.ReadDir(".")
+	filesInfo, _ := os.ReadDir(dataFolderPath)
 	for _, fi := range filesInfo {
 		if name := fi.Name(); strings.HasSuffix(name, ".svg") || strings.HasSuffix(name, ".png") {
 			files = append(files, name)
 		}
 	}
 
-	exportToHTML(files, sheetNumber)
+	exportToHTML(files, dataFolderPath, sheetNumber)
 
 	return nil
 }
