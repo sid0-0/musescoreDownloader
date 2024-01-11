@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"regexp"
@@ -37,7 +38,7 @@ func getAuthTokenFromChunk(chunkUrl string) (string, error) {
 	}
 	var bodyString string = string(bodyContentInBytes)
 
-	fmt.Println("url: ", chunkUrl)
+	fmt.Println("Chunk url: ", chunkUrl)
 	// If it's breaking, 99% this is where the problem is
 	compiledRegex, err := regexp.Compile(`[a-z,A-Z],.\.mainServer,.\),\s*"(.*?)"`)
 	if err != nil {
@@ -56,7 +57,7 @@ func getAuthTokenFromChunk(chunkUrl string) (string, error) {
 
 func getSVGSheetUrl(sheetId string, pageNumber int, headers map[string]string) (string, error) {
 	urlPath := fmt.Sprintf(`https://musescore.com/api/jmuse?id=%s&index=%d&type=img&v2=1`, sheetId, pageNumber)
-	fmt.Println("url: ", urlPath)
+	fmt.Println("Sheet asset url: ", urlPath)
 
 	// Creating new http request object
 	request, err := http.NewRequest(http.MethodGet, urlPath, nil)
@@ -90,8 +91,6 @@ func getSVGSheetUrl(sheetId string, pageNumber int, headers map[string]string) (
 
 	json.NewDecoder(res.Body).Decode(&data)
 
-	fmt.Println(data.Status)
-
 	if len(data.Info.Url) == 0 {
 		return "", errors.New("Failed to get SVG url")
 	}
@@ -100,7 +99,7 @@ func getSVGSheetUrl(sheetId string, pageNumber int, headers map[string]string) (
 	return data.Info.Url, nil
 }
 
-func downloadFile(fileUrl string, fileName string) error {
+func downloadFile(fileUrl string) error {
 	res, err := http.Get(fileUrl)
 	if err != nil {
 		return err
@@ -111,15 +110,14 @@ func downloadFile(fileUrl string, fileName string) error {
 		return errors.New("Request failed")
 	}
 
-	if len(fileName) == 0 {
-		fileName = "DummyFilename"
+	_, parsedData, err := mime.ParseMediaType(res.Header.Get("Content-Disposition"))
+	if err != nil {
+		fmt.Println("Failed to parse request data")
+		return err
 	}
-	// err = os.MkdirAll("downloads", 0777)
-	// if err != nil {
-	// 	fmt.Println("Failed to create folder")
-	// 	return err
-	// }
-	// fileName = fileName
+
+	fileName := parsedData["filename"]
+	fmt.Println("Filename: ", fileName)
 	file, err := os.Create(fileName)
 	if err != nil {
 		fmt.Println("Failed to create file")
@@ -133,40 +131,39 @@ func downloadFile(fileUrl string, fileName string) error {
 	return nil
 }
 
+var outputTemplate = template.Must(template.ParseFiles("cmd/dl/template.html"))
+
 func exportToHTML(files []string, sheetNumber string) error {
-
-	tmpl := template.Must(template.ParseFiles("../cmd/dl/template.html"))
-
 	file, err := os.Create(sheetNumber + ".html")
 	if err != nil {
 		fmt.Println("Failed to create file")
 		return err
 	}
 	defer file.Close()
-	err = tmpl.Execute(file, files)
+	err = outputTemplate.Execute(file, files)
 	return err
 }
 
 func downloadSvgsTillFailure(url string, headers map[string]string) error {
 	sheetNumber := GetLastFromSplit(url, "/")
-	err := os.MkdirAll(sheetNumber, 0777)
+	fmt.Printf("SheetId: %s\n", sheetNumber)
+	err := os.MkdirAll(fmt.Sprintf("downloads/%s", sheetNumber), 0777)
 	if err != nil {
 		fmt.Println("Failed to create directory")
 		return err
 	}
-	err = os.Chdir(sheetNumber)
+	err = os.Chdir(fmt.Sprintf("downloads/%s", sheetNumber))
 	if err != nil {
 		fmt.Println("Failed to change to  directory")
 		return err
 	}
 	var pageIndex int = 0
 	for {
-		svgUrl, err := getSVGSheetUrl(url, pageIndex, headers)
+		svgUrl, err := getSVGSheetUrl(sheetNumber, pageIndex, headers)
 		if err != nil {
 			panic(err)
 		}
-		fileName := fmt.Sprintf("%s_%d.svg", sheetNumber, pageIndex)
-		err = downloadFile(svgUrl, fileName)
+		err = downloadFile(svgUrl)
 		if err != nil {
 			if pageIndex == 0 {
 				panic(err)
@@ -180,7 +177,7 @@ func downloadSvgsTillFailure(url string, headers map[string]string) error {
 	var files []string
 	filesInfo, _ := os.ReadDir(".")
 	for _, fi := range filesInfo {
-		if name := fi.Name(); strings.HasSuffix(name, ".svg") {
+		if name := fi.Name(); strings.HasSuffix(name, ".svg") || strings.HasSuffix(name, ".png") {
 			files = append(files, name)
 		}
 	}
