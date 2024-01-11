@@ -38,7 +38,8 @@ func getAuthTokenFromChunk(chunkUrl string) (string, error) {
 	}
 	var bodyString string = string(bodyContentInBytes)
 
-	fmt.Println("Chunk url: ", chunkUrl)
+	// fmt.Println("Chunk url: ", chunkUrl)
+
 	// If it's breaking, 99% this is where the problem is
 	compiledRegex, err := regexp.Compile(`[a-z,A-Z],.\.mainServer,.\),\s*"(.*?)"`)
 	if err != nil {
@@ -50,14 +51,14 @@ func getAuthTokenFromChunk(chunkUrl string) (string, error) {
 	}
 
 	token := foundStringMap[0][1]
-	fmt.Println("Token found: ", token)
+	// fmt.Println("Token found: ", token)
 
 	return token, nil
 }
 
 func getSVGSheetUrl(sheetId string, pageNumber int, headers map[string]string) (string, error) {
 	urlPath := fmt.Sprintf(`https://musescore.com/api/jmuse?id=%s&index=%d&type=img&v2=1`, sheetId, pageNumber)
-	fmt.Println("Sheet asset url: ", urlPath)
+	// fmt.Println("Sheet asset url: ", urlPath)
 
 	// Creating new http request object
 	request, err := http.NewRequest(http.MethodGet, urlPath, nil)
@@ -95,7 +96,6 @@ func getSVGSheetUrl(sheetId string, pageNumber int, headers map[string]string) (
 		return "", errors.New("Failed to get SVG url")
 	}
 
-	// fmt.Println("SVG url: ", data.Info.Url)
 	return data.Info.Url, nil
 }
 
@@ -117,7 +117,7 @@ func downloadFile(fileUrl string, dataFolderPath string) error {
 	}
 
 	fileName := parsedData["filename"]
-	fmt.Println("Filename: ", fileName)
+	// fmt.Println("Filename: ", fileName)
 	file, err := os.Create(dataFolderPath + "/" + fileName)
 	if err != nil {
 		fmt.Println("Failed to create file")
@@ -146,7 +146,7 @@ func exportToHTML(files []string, dataFolderPath string, sheetNumber string) err
 
 func downloadSvgsTillFailure(url string, headers map[string]string) error {
 	sheetNumber := GetLastFromSplit(url, "/")
-	fmt.Printf("SheetId: %s\n", sheetNumber)
+	// fmt.Printf("SheetId: %s\n", sheetNumber)
 	dataFolderPath := fmt.Sprintf("downloads/%s", sheetNumber)
 	err := os.MkdirAll(fmt.Sprintf("downloads/%s", sheetNumber), 0777)
 	if err != nil {
@@ -183,8 +183,7 @@ func downloadSvgsTillFailure(url string, headers map[string]string) error {
 	return nil
 }
 
-func DownloadFromUrl(url string) error {
-	fmt.Println(url)
+func DownloadFromUrl(url string, rem *chan string) error {
 	c := colly.NewCollector()
 	c.OnHTML("link[rel=\"preload\"][as=\"script\"]", func(e *colly.HTMLElement) {
 		var href string = e.Attr("href")
@@ -200,16 +199,12 @@ func DownloadFromUrl(url string) error {
 		downloadSvgsTillFailure(url, map[string]string{"authorization": token})
 	})
 
-	//	c.OnHTML("body", func(e *colly.HTMLElement) {
-	//		// Extract data from HTML elements
-	//		quote ,_:= e.DOM.Html()
-	//
-	//		fmt.Printf("Quote: %s", quote)
-	//	})
 	if err := c.Visit(url); err != nil {
 		fmt.Println("Scraping failed. ", err)
 		return err
 	}
+
+	*rem <- url
 
 	return nil
 }

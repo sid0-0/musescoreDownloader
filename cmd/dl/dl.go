@@ -1,6 +1,8 @@
 package dl
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -13,8 +15,24 @@ var DlCmd = &cobra.Command{
 			cmd.Help()
 			return
 		}
+		remList := args
+		rem := make(chan string, 10)
+
 		for _, url := range args {
-			DownloadFromUrl(url)
+			go DownloadFromUrl(url, &rem)
+		}
+
+		fmt.Println("\nRemaining: ", len(remList))
+
+		for i := 0; i < len(args); i++ {
+			completedUrl := <-rem
+			for i, v := range remList {
+				if v == completedUrl {
+					remList[i] = remList[len(remList)-1]
+					remList = remList[:len(remList)-1]
+				}
+			}
+			fmt.Println("\nRemaining: ", len(remList), "\n", remList)
 		}
 	},
 }
